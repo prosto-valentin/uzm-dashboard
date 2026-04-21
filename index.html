@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>УЗМ — Реестр заявок</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  --bg:#f5f4f0;--surface:#ffffff;--surface-2:#f9f8f5;--border:#e0ddd8;
+  --text:#1a1917;--muted:#6b6a66;--faint:#b0afa9;--inverse:#f9f8f4;
+  --primary:#01696f;--primary-h:#0c4e54;--primary-hl:#cedcd8;
+  --success:#437a22;--error:#a12c7b;--warning:#da7101;--gold:#d19900;
+  --blue:#006494;--purple:#7a39bb;--orange:#da7101;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 16px rgba(0,0,0,.10);--shadow-lg:0 12px 40px rgba(0,0,0,.13);
+  --r:0.5rem;--r-lg:0.875rem;--r-xl:1.25rem;
+  --font-body:'Inter',sans-serif;
+}
+[data-theme="dark"]{
+  --bg:#111110;--surface:#1a1917;--surface-2:#201f1d;--border:#2e2d2a;
+  --text:#d4d3d0;--muted:#7a7976;--faint:#4a4946;--inverse:#1a1917;
+  --primary:#4f98a3;--primary-h:#227f8b;--primary-hl:#1e3535;
+  --success:#6daa45;--error:#d163a7;--warning:#fdab43;--gold:#e8af34;
+  --blue:#5591c7;--purple:#a86fdf;--orange:#fdab43;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.3);--shadow-md:0 4px 16px rgba(0,0,0,.4);--shadow-lg:0 12px 40px rgba(0,0,0,.5);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font-family:var(--font-body);font-size:14px;color:var(--text);background:var(--bg);min-height:100dvh;line-height:1.5}
+/* Layout */
+.app{display:grid;grid-template-columns:220px 1fr;grid-template-rows:auto 1fr;min-height:100dvh}
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 20px;height:56px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;color:var(--text);text-decoration:none}
+.logo svg{flex-shrink:0}
+.topbar-title{font-size:13px;color:var(--muted);margin-left:4px}
+.topbar-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+.btn-icon{width:34px;height:34px;border-radius:var(--r);border:1px solid var(--border);background:var(--surface-2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);transition:all .15s}
+.btn-icon:hover{background:var(--border);color:var(--text)}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);padding:12px 8px;display:flex;flex-direction:column;gap:2px;position:sticky;top:56px;height:calc(100dvh - 56px);overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:var(--r);cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:all .15s;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--surface-2);color:var(--text)}
+.nav-item.active{background:var(--primary-hl);color:var(--primary)}
+.nav-section{font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:12px 10px 4px}
+.main{padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:20px}
+/* KPI Cards */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px 18px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow-sm)}
+.kpi-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.kpi-value{font-size:28px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1}
+.kpi-delta{font-size:12px;font-weight:600;display:flex;align-items:center;gap:3px}
+.kpi-delta.up{color:var(--success)}
+.kpi-delta.down{color:var(--error)}
+.kpi-delta.neutral{color:var(--muted)}
+/* Charts grid */
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.charts-grid-3{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;box-shadow:var(--shadow-sm)}
+.chart-card.full{grid-column:1/-1}
+.chart-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+.chart-sub{font-size:11px;color:var(--muted);margin-bottom:14px}
+.chart-wrap{position:relative;width:100%}
+/* Section header */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:-4px}
+.section-title{font-size:15px;font-weight:700;color:var(--text)}
+.section-period{font-size:12px;color:var(--muted)}
+/* Table */
+.data-table{width:100%;border-collapse:collapse;font-size:13px}
+.data-table th{text-align:left;padding:8px 10px;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.data-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text);font-variant-numeric:tabular-nums}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--surface-2)}
+.bar-cell{display:flex;align-items:center;gap:8px}
+.bar-bg{flex:1;background:var(--border);border-radius:100px;height:6px;overflow:hidden}
+.bar-fill{height:100%;border-radius:100px;transition:width .6s cubic-bezier(.16,1,.3,1)}
+/* Badges */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:100px;font-size:11px;font-weight:600}
+.badge-success{background:color-mix(in oklab,var(--success) 15%,transparent);color:var(--success)}
+.badge-warning{background:color-mix(in oklab,var(--warning) 15%,transparent);color:var(--warning)}
+.badge-error{background:color-mix(in oklab,var(--error) 15%,transparent);color:var(--error)}
+.badge-primary{background:color-mix(in oklab,var(--primary) 15%,transparent);color:var(--primary)}
+/* Tabs */
+.tabs{display:flex;gap:2px;background:var(--surface-2);border-radius:var(--r);padding:3px;width:fit-content;margin-bottom:16px}
+.tab{padding:5px 14px;border-radius:calc(var(--r) - 2px);font-size:12px;font-weight:600;cursor:pointer;border:none;background:none;color:var(--muted);transition:all .15s}
+.tab.active{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+/* Views */
+.view{display:none}.view.active{display:contents}
+/* Progress bar for managers */
+.mgr-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.mgr-row:last-child{border-bottom:none}
+.mgr-name{width:130px;font-size:12px;font-weight:500;color:var(--text);flex-shrink:0}
+.mgr-bar-wrap{flex:1;background:var(--border);border-radius:100px;height:7px}
+.mgr-bar{height:100%;border-radius:100px;background:var(--primary)}
+.mgr-val{width:100px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
+/* Tooltip */
+.chart-tooltip{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;font-size:12px;pointer-events:none;box-shadow:var(--shadow-md);z-index:999;display:none}
+/* Page views nav */
+#page-overview.active,.nav-item[data-page]{cursor:pointer}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <a class="logo" href="#">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="6" fill="var(--primary)"/>
+      <path d="M7 14h4l3-7 3 14 3-7h1" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>УЗМ</span>
+  </a>
+  <span class="topbar-title">Аналитика реестра заявок</span>
+  <div class="topbar-actions">
+    <button class="btn-icon" data-theme-toggle title="Переключить тему" aria-label="Переключить тему">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="nav-section">Аналитика</div>
+  <button class="nav-item active" data-page="overview">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Обзор
+  </button>
+  <button class="nav-item" data-page="dynamics">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Динамика
+  </button>
+  <button class="nav-item" data-page="managers">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+    Менеджеры
+  </button>
+  <button class="nav-item" data-page="clients">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+    Клиенты
+  </button>
+  <div class="nav-section">Статусы</div>
+  <button class="nav-item" data-page="status">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    Статусы заявок
+  </button>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main" id="main-content">
+
+  <!-- OVERVIEW PAGE -->
+  <div id="page-overview" class="view active">
+    <div class="section-header"><span class="section-title">Сводный обзор</span><span class="section-period">2021–2025</span></div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Всего заявок</div>
+        <div class="kpi-value" style="color:var(--primary)" id="kpi-total">1 057</div>
+        <div class="kpi-delta up">↑ +171 vs 2024</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Заявок в 2025</div>
+        <div class="kpi-value" id="kpi-2025">303</div>
+        <div class="kpi-delta up">↑ +130% vs 2024</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Сумма ТКП 2025</div>
+        <div class="kpi-value" style="color:var(--success)" id="kpi-rev">1,47 млрд</div>
+        <div class="kpi-delta up">↑ +112% vs 2024</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Выполнено 2025</div>
+        <div class="kpi-value" id="kpi-done">90%</div>
+        <div class="kpi-delta up">↑ +7% vs 2024</div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Количество заявок по годам</div>
+        <div class="chart-sub">Общая динамика обращений 2021–2025</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chart-yearly-bar"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Статусы заявок 2025</div>
+        <div class="chart-sub">Распределение по текущим статусам</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chart-status-doughnut"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid-3">
+      <div class="chart-card">
+        <div class="chart-title">Динамика выручки по ТКП (2024–2025)</div>
+        <div class="chart-sub">Сумма коммерческих предложений без НДС, ₽</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chart-rev-bar"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Конверсия по годам</div>
+        <div class="chart-sub">Доля «Отработано» от всех заявок</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="chart-conversion"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DYNAMICS PAGE -->
+  <div id="page-dynamics" class="view">
+    <div class="section-header"><span class="section-title">Динамика 2025</span><span class="section-period">по месяцам</span></div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Лучший месяц (заявки)</div>
+        <div class="kpi-value" style="color:var(--primary)">Апр</div>
+        <div class="kpi-delta neutral">57 заявок</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Лучший месяц (выручка)</div>
+        <div class="kpi-value" style="color:var(--success)">Фев</div>
+        <div class="kpi-delta neutral">332 млн ₽</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Среднее заявок / мес</div>
+        <div class="kpi-value">30</div>
+        <div class="kpi-delta neutral">янв–окт 2025</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Ср. сумма ТКП / мес</div>
+        <div class="kpi-value">147 млн</div>
+        <div class="kpi-delta neutral">со стоимостью</div>
+      </div>
+    </div>
+
+    <div class="chart-card full">
+      <div class="chart-title">Заявки и сумма ТКП по месяцам 2025</div>
+      <div class="chart-sub">Количество заявок (левая ось) и сумма ТКП без НДС (правая ось)</div>
+      <div class="tabs">
+        <button class="tab active" onclick="switchDynTab(this,'count')">Заявки</button>
+        <button class="tab" onclick="switchDynTab(this,'revenue')">Выручка ₽</button>
+        <button class="tab" onclick="switchDynTab(this,'both')">Оба показателя</button>
+      </div>
+      <div class="chart-wrap" style="height:260px"><canvas id="chart-monthly-line"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Скользящее среднее заявок (3 мес.)</div>
+      <div class="chart-sub">Сглаженная тенденция 2025</div>
+      <div class="chart-wrap" style="height:180px"><canvas id="chart-rolling"></canvas></div>
+    </div>
+  </div>
+
+  <!-- MANAGERS PAGE -->
+  <div id="page-managers" class="view">
+    <div class="section-header"><span class="section-title">Эффективность менеджеров</span><span class="section-period">2024–2025</span></div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Топ менеджеров по сумме ТКП</div>
+        <div class="chart-sub">Суммарный объём выставленных КП без НДС</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="chart-mgr-rev"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Топ менеджеров по числу заявок</div>
+        <div class="chart-sub">Количество обработанных обращений</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="chart-mgr-count"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Детализация по менеджерам</div>
+      <div class="chart-sub">Рейтинг по выручке ТКП, 2024–2025</div>
+      <div id="mgr-detail"></div>
+    </div>
+  </div>
+
+  <!-- CLIENTS PAGE -->
+  <div id="page-clients" class="view">
+    <div class="section-header"><span class="section-title">Топ клиентов</span><span class="section-period">2024–2025 по сумме ТКП</span></div>
+
+    <div class="chart-card">
+      <div class="chart-title">Топ-8 клиентов по объёму ТКП</div>
+      <div class="chart-sub">Суммарная стоимость коммерческих предложений без НДС, ₽</div>
+      <div class="chart-wrap" style="height:280px"><canvas id="chart-clients-bar"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Распределение доли топ-клиентов</div>
+      <div class="chart-sub">Процент от общей суммы ТКП 2024–2025</div>
+      <div class="chart-wrap" style="height:260px"><canvas id="chart-clients-pie"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Таблица топ клиентов</div>
+      <div class="chart-sub">Ранжирование по объёму ТКП</div>
+      <table class="data-table" id="clients-table"></table>
+    </div>
+  </div>
+
+  <!-- STATUS PAGE -->
+  <div id="page-status" class="view">
+    <div class="section-header"><span class="section-title">Статусы заявок</span><span class="section-period">2021–2025</span></div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Статусы по годам (стек)</div>
+        <div class="chart-sub">Структура обработки заявок</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-status-stack"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Доля просроченных по годам</div>
+        <div class="chart-sub">% от общего числа заявок</div>
+        <div class="chart-wrap" style="height:280px"><canvas id="chart-overdue"></canvas></div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Отработано 2022</div>
+        <div class="kpi-value" style="color:var(--muted)">48%</div>
+        <div class="kpi-delta neutral">129 из 266</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Отработано 2023</div>
+        <div class="kpi-value" style="color:var(--warning)">68%</div>
+        <div class="kpi-delta up">+20 п.п.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Отработано 2024</div>
+        <div class="kpi-value" style="color:var(--success)">68%</div>
+        <div class="kpi-delta neutral">= 2023</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Отработано 2025</div>
+        <div class="kpi-value" style="color:var(--primary)">90%</div>
+        <div class="kpi-delta up">↑ лучший год</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+const DATA = {"yearly": [{"year": "2021", "total": 105, "done": 80, "in_progress": 19, "overdue": 0, "revenue": null}, {"year": "2022", "total": 266, "done": 129, "in_progress": 100, "overdue": 22, "revenue": null}, {"year": "2023", "total": 251, "done": 170, "in_progress": 47, "overdue": 7, "revenue": null}, {"year": "2024", "total": 132, "done": 90, "in_progress": 23, "overdue": 12, "revenue": 694914200}, {"year": "2025", "total": 303, "done": 274, "in_progress": 22, "overdue": 0, "revenue": 1474983000}], "monthly_2025": [{"month": "Янв", "count": 14, "revenue": 130694148.0}, {"month": "Фев", "count": 42, "revenue": 331924860.0}, {"month": "Мар", "count": 29, "revenue": 67209558.36}, {"month": "Апр", "count": 57, "revenue": 151944907.55}, {"month": "Май", "count": 31, "revenue": 133445868.38}, {"month": "Июн", "count": 28, "revenue": 163577770.4}, {"month": "Июл", "count": 24, "revenue": 64729344.4}, {"month": "Авг", "count": 36, "revenue": 190964569.0}, {"month": "Сен", "count": 27, "revenue": 216072544.0}, {"month": "Окт", "count": 9, "revenue": 11110210.0}], "managers": [{"mgr": "Троцких А.С.", "requests": 72, "revenue": 639534372.0}, {"mgr": "Султанова О.Г.", "requests": 88, "revenue": 633913104.28}, {"mgr": "Востротина И.А.", "requests": 158, "revenue": 498647369.0}, {"mgr": "Баканов Д.С.", "requests": 48, "revenue": 176215012.29}, {"mgr": "Подкорытова М.С.", "requests": 24, "revenue": 153155764.0}, {"mgr": "Данилова Е,В. (Подкорытова М.С)", "requests": 2, "revenue": 34798445.0}, {"mgr": "Данилова Е.В.", "requests": 19, "revenue": 31661024.8}, {"mgr": "Троцких\\Востротина", "requests": 1, "revenue": 1972000.0}], "clients": [{"name": "Газпром бурение", "revenue": 262902852.36}, {"name": "Газпром добыча Тамбей", "revenue": 235744933.0}, {"name": "Подзембургаз", "revenue": 159334474.6}, {"name": "ООО \"Ньютех Велл Сервис\"", "revenue": 134239890.0}, {"name": "ООО \"Центр Строительства и Э...", "revenue": 123954300.0}, {"name": "Газпром добыча Тамбей ООО", "revenue": 105577190.4}, {"name": "АО ОРЕНБУРГНЕФТЬ", "revenue": 100075000.0}, {"name": "ГПН-Снабжение ООО", "revenue": 67149999.0}], "status_2025": [{"label": "Отработано", "value": 274}, {"label": "В работе", "value": 22}, {"label": "Прочее", "value": 7}]};
+
+// Theme toggle
+(function(){
+  const t=document.querySelector('[data-theme-toggle]');
+  const r=document.documentElement;
+  t&&t.addEventListener('click',()=>{
+    const d=r.getAttribute('data-theme')==='dark'?'light':'dark';
+    r.setAttribute('data-theme',d);
+    t.innerHTML=d==='dark'
+      ?'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+      :'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>';
+    initCharts();
+  });
+})();
+
+// Navigation
+document.querySelectorAll('.nav-item[data-page]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('page-'+btn.dataset.page).classList.add('active');
+    initCharts();
+  });
+});
+
+function getCSS(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function rgba(v,a){const c=getCSS(v);return c.startsWith('#')?hexToRgba(c,a):c;}
+function hexToRgba(h,a){const r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return `rgba(${r},${g},${b},${a})`;}
+function fmtM(v){return (v/1e6).toFixed(1)+' млн';}
+function fmtMShort(v){return Math.round(v/1e6)+' млн';}
+
+const chartInstances={};
+function destroyChart(id){if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];}}
+
+const COLORS=['#4f98a3','#6daa45','#e8af34','#5591c7','#a86fdf','#fdab43','#d163a7','#dd6974'];
+
+function initCharts(){
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const textColor=getCSS('--text');
+  const mutedColor=getCSS('--muted');
+  const borderColor=getCSS('--border');
+  const primaryColor=getCSS('--primary');
+  const successColor=getCSS('--success');
+
+  const gridOpts={
+    color:borderColor,
+    borderColor:borderColor,
+    tickColor:borderColor
+  };
+  const defaults={
+    responsive:true,
+    maintainAspectRatio:false,
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:getCSS('--surface'),
+        titleColor:textColor,
+        bodyColor:mutedColor,
+        borderColor:borderColor,
+        borderWidth:1,
+        padding:10,
+        callbacks:{}
+      }
+    },
+    scales:{
+      x:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11}}},
+      y:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11}}}
+    }
+  };
+
+  // 1. Yearly bar
+  const yEl=document.getElementById('chart-yearly-bar');
+  if(yEl&&yEl.offsetParent!==null){
+    destroyChart('yearly-bar');
+    chartInstances['yearly-bar']=new Chart(yEl,{
+      type:'bar',
+      data:{
+        labels:DATA.yearly.map(d=>d.year),
+        datasets:[{
+          data:DATA.yearly.map(d=>d.total),
+          backgroundColor:DATA.yearly.map((_,i)=>i===4?primaryColor:hexToRgba(primaryColor,.35)),
+          borderRadius:5,borderSkipped:false,
+        }]
+      },
+      options:{...defaults,plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>'Заявок: '+ctx.raw}}}}
+    });
+  }
+
+  // 2. Status doughnut
+  const sdEl=document.getElementById('chart-status-doughnut');
+  if(sdEl&&sdEl.offsetParent!==null){
+    destroyChart('status-doughnut');
+    chartInstances['status-doughnut']=new Chart(sdEl,{
+      type:'doughnut',
+      data:{
+        labels:DATA.status_2025.map(d=>d.label),
+        datasets:[{data:DATA.status_2025.map(d=>d.value),backgroundColor:[primaryColor,getCSS('--warning'),getCSS('--muted')],borderWidth:2,borderColor:getCSS('--surface')}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+        plugins:{legend:{display:true,position:'bottom',labels:{color:textColor,font:{size:11},padding:12,boxWidth:10}},
+          tooltip:{backgroundColor:getCSS('--surface'),titleColor:textColor,bodyColor:mutedColor,borderColor:borderColor,borderWidth:1,padding:10}
+        }}
+    });
+  }
+
+  // 3. Revenue bar
+  const rvEl=document.getElementById('chart-rev-bar');
+  if(rvEl&&rvEl.offsetParent!==null){
+    destroyChart('rev-bar');
+    const revData=DATA.yearly.filter(d=>d.revenue);
+    chartInstances['rev-bar']=new Chart(rvEl,{
+      type:'bar',
+      data:{
+        labels:revData.map(d=>d.year),
+        datasets:[{data:revData.map(d=>d.revenue),backgroundColor:[hexToRgba(successColor,.5),successColor],borderRadius:5,borderSkipped:false}]
+      },
+      options:{...defaults,plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>'₽ '+fmtM(ctx.raw)}}},
+        scales:{...defaults.scales,y:{...defaults.scales.y,ticks:{...defaults.scales.y.ticks,callback:v=>fmtMShort(v)}}}}
+    });
+  }
+
+  // 4. Conversion line
+  const cvEl=document.getElementById('chart-conversion');
+  if(cvEl&&cvEl.offsetParent!==null){
+    destroyChart('conversion');
+    const conv=DATA.yearly.map(d=>Math.round(d.done/d.total*100));
+    chartInstances['conversion']=new Chart(cvEl,{
+      type:'line',
+      data:{
+        labels:DATA.yearly.map(d=>d.year),
+        datasets:[{data:conv,borderColor:primaryColor,backgroundColor:hexToRgba(primaryColor,.1),fill:true,tension:.4,pointBackgroundColor:primaryColor,pointRadius:4}]
+      },
+      options:{...defaults,plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>ctx.raw+'% выполнено'}}},
+        scales:{...defaults.scales,y:{...defaults.scales.y,min:0,max:100,ticks:{...defaults.scales.y.ticks,callback:v=>v+'%'}}}}
+    });
+  }
+
+  // 5. Monthly line (dynamics)
+  const mlEl=document.getElementById('chart-monthly-line');
+  if(mlEl&&mlEl.offsetParent!==null){
+    destroyChart('monthly-line');
+    chartInstances['monthly-line']=new Chart(mlEl,{
+      type:'bar',
+      data:{
+        labels:DATA.monthly_2025.map(d=>d.month),
+        datasets:[
+          {label:'Заявки',data:DATA.monthly_2025.map(d=>d.count),backgroundColor:hexToRgba(primaryColor,.7),borderRadius:4,borderSkipped:false,yAxisID:'y'},
+          {label:'Выручка (млн ₽)',data:DATA.monthly_2025.map(d=>+(d.revenue/1e6).toFixed(1)),type:'line',borderColor:getCSS('--success'),backgroundColor:'transparent',tension:.4,pointBackgroundColor:getCSS('--success'),pointRadius:4,yAxisID:'y2',hidden:true}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,position:'top',labels:{color:textColor,font:{size:11},padding:10,boxWidth:10}},
+          tooltip:{backgroundColor:getCSS('--surface'),titleColor:textColor,bodyColor:mutedColor,borderColor:borderColor,borderWidth:1,padding:10}},
+        scales:{
+          x:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11}}},
+          y:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11}},position:'left',title:{display:true,text:'Заявок',color:mutedColor,font:{size:10}}},
+          y2:{display:false,position:'right',title:{display:false}}
+        }
+      }
+    });
+  }
+
+  // 6. Rolling average
+  const rlEl=document.getElementById('chart-rolling');
+  if(rlEl&&rlEl.offsetParent!==null){
+    destroyChart('rolling');
+    const raw=DATA.monthly_2025.map(d=>d.count);
+    const roll=raw.map((v,i)=>i<2?null:Math.round((raw[i]+raw[i-1]+raw[i-2])/3));
+    chartInstances['rolling']=new Chart(rlEl,{
+      type:'line',
+      data:{
+        labels:DATA.monthly_2025.map(d=>d.month),
+        datasets:[
+          {label:'Заявок',data:raw,borderColor:hexToRgba(primaryColor,.4),backgroundColor:'transparent',tension:.3,pointRadius:3,pointBackgroundColor:hexToRgba(primaryColor,.4)},
+          {label:'Скользящее среднее (3 мес.)',data:roll,borderColor:primaryColor,backgroundColor:hexToRgba(primaryColor,.1),fill:true,tension:.4,pointRadius:4,pointBackgroundColor:primaryColor,borderWidth:2}
+        ]
+      },
+      options:{...defaults,plugins:{...defaults.plugins,legend:{display:true,position:'top',labels:{color:textColor,font:{size:11},padding:10,boxWidth:10}}}}
+    });
+  }
+
+  // 7. Managers revenue
+  const mrEl=document.getElementById('chart-mgr-rev');
+  if(mrEl&&mrEl.offsetParent!==null){
+    destroyChart('mgr-rev');
+    const sorted=[...DATA.managers].sort((a,b)=>b.revenue-a.revenue).slice(0,6);
+    chartInstances['mgr-rev']=new Chart(mrEl,{
+      type:'bar',
+      data:{
+        labels:sorted.map(m=>m.mgr.split(' ')[0]+' '+m.mgr.split(' ')[1]),
+        datasets:[{data:sorted.map(m=>+(m.revenue/1e6).toFixed(1)),backgroundColor:sorted.map((_,i)=>COLORS[i]||primaryColor),borderRadius:5,borderSkipped:false}]
+      },
+      options:{...defaults,indexAxis:'y',plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>fmtM(ctx.raw*1e6)}}},
+        scales:{x:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11},callback:v=>v+' млн'}},y:{grid:{display:false},ticks:{color:mutedColor,font:{size:11}}}}}
+    });
+  }
+
+  // 8. Managers count
+  const mcEl=document.getElementById('chart-mgr-count');
+  if(mcEl&&mcEl.offsetParent!==null){
+    destroyChart('mgr-count');
+    const sorted=[...DATA.managers].sort((a,b)=>b.requests-a.requests).slice(0,6);
+    chartInstances['mgr-count']=new Chart(mcEl,{
+      type:'bar',
+      data:{
+        labels:sorted.map(m=>m.mgr.split(' ')[0]+' '+m.mgr.split(' ')[1]),
+        datasets:[{data:sorted.map(m=>m.requests),backgroundColor:sorted.map((_,i)=>COLORS[i]||primaryColor),borderRadius:5,borderSkipped:false}]
+      },
+      options:{...defaults,indexAxis:'y',plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>ctx.raw+' заявок'}}},
+        scales:{x:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11}}},y:{grid:{display:false},ticks:{color:mutedColor,font:{size:11}}}}}
+    });
+  }
+
+  // Manager detail bars
+  const mgrDet=document.getElementById('mgr-detail');
+  if(mgrDet){
+    const maxRev=Math.max(...DATA.managers.map(m=>m.revenue));
+    mgrDet.innerHTML=DATA.managers.map((m,i)=>`
+      <div class="mgr-row">
+        <div class="mgr-name">${m.mgr}</div>
+        <div class="mgr-bar-wrap"><div class="mgr-bar" style="width:${(m.revenue/maxRev*100).toFixed(1)}%;background:${COLORS[i]||primaryColor}"></div></div>
+        <div class="mgr-val">${fmtM(m.revenue)}</div>
+        <div style="width:60px;text-align:right;font-size:12px;color:${mutedColor}">${m.requests} зая.</div>
+      </div>`).join('');
+  }
+
+  // 9. Clients bar
+  const cbEl=document.getElementById('chart-clients-bar');
+  if(cbEl&&cbEl.offsetParent!==null){
+    destroyChart('clients-bar');
+    chartInstances['clients-bar']=new Chart(cbEl,{
+      type:'bar',
+      data:{
+        labels:DATA.clients.map(c=>c.name),
+        datasets:[{data:DATA.clients.map(c=>+(c.revenue/1e6).toFixed(1)),backgroundColor:DATA.clients.map((_,i)=>COLORS[i]||primaryColor),borderRadius:5,borderSkipped:false}]
+      },
+      options:{...defaults,indexAxis:'y',plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>fmtM(ctx.raw*1e6)}}},
+        scales:{x:{grid:gridOpts,ticks:{color:mutedColor,font:{size:11},callback:v=>v+' млн'}},y:{grid:{display:false},ticks:{color:mutedColor,font:{size:11}}}}}
+    });
+  }
+
+  // 10. Clients pie
+  const cpEl=document.getElementById('chart-clients-pie');
+  if(cpEl&&cpEl.offsetParent!==null){
+    destroyChart('clients-pie');
+    chartInstances['clients-pie']=new Chart(cpEl,{
+      type:'doughnut',
+      data:{
+        labels:DATA.clients.map(c=>c.name),
+        datasets:[{data:DATA.clients.map(c=>c.revenue),backgroundColor:COLORS,borderWidth:2,borderColor:getCSS('--surface')}]
+      },
+      options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+        plugins:{legend:{display:true,position:'right',labels:{color:textColor,font:{size:11},padding:8,boxWidth:10}},
+          tooltip:{backgroundColor:getCSS('--surface'),titleColor:textColor,bodyColor:mutedColor,borderColor:borderColor,borderWidth:1,padding:10,callbacks:{label:ctx=>fmtM(ctx.raw)+' ('+((ctx.raw/DATA.clients.reduce((a,c)=>a+c.revenue,0))*100).toFixed(1)+'%)'}}}}
+    });
+  }
+
+  // Clients table
+  const ctEl=document.getElementById('clients-table');
+  if(ctEl){
+    const total=DATA.clients.reduce((a,c)=>a+c.revenue,0);
+    ctEl.innerHTML=`<thead><tr><th>#</th><th>Организация</th><th>Сумма ТКП</th><th>Доля</th><th>Рейтинг</th></tr></thead><tbody>`+
+      DATA.clients.map((c,i)=>`<tr>
+        <td><span style="color:var(--muted)">${i+1}</span></td>
+        <td>${c.name}</td>
+        <td style="color:var(--primary)">${fmtM(c.revenue)}</td>
+        <td>${((c.revenue/total)*100).toFixed(1)}%</td>
+        <td><div class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${(c.revenue/DATA.clients[0].revenue*100).toFixed(1)}%;background:${COLORS[i]}"></div></div></div></td>
+      </tr>`).join('')+'</tbody>';
+  }
+
+  // 11. Status stacked bar
+  const ssEl=document.getElementById('chart-status-stack');
+  if(ssEl&&ssEl.offsetParent!==null){
+    destroyChart('status-stack');
+    chartInstances['status-stack']=new Chart(ssEl,{
+      type:'bar',
+      data:{
+        labels:DATA.yearly.map(d=>d.year),
+        datasets:[
+          {label:'Отработано',data:DATA.yearly.map(d=>d.done),backgroundColor:primaryColor,borderRadius:0},
+          {label:'В работе',data:DATA.yearly.map(d=>d.in_progress),backgroundColor:getCSS('--warning'),borderRadius:0},
+          {label:'Просрочено',data:DATA.yearly.map(d=>d.overdue),backgroundColor:getCSS('--error'),borderRadius:0},
+        ]
+      },
+      options:{...defaults,scales:{...defaults.scales,x:{...defaults.scales.x,stacked:true},y:{...defaults.scales.y,stacked:true}},
+        plugins:{...defaults.plugins,legend:{display:true,position:'top',labels:{color:textColor,font:{size:11},padding:10,boxWidth:10}}}}
+    });
+  }
+
+  // 12. Overdue
+  const odEl=document.getElementById('chart-overdue');
+  if(odEl&&odEl.offsetParent!==null){
+    destroyChart('overdue');
+    chartInstances['overdue']=new Chart(odEl,{
+      type:'bar',
+      data:{
+        labels:DATA.yearly.map(d=>d.year),
+        datasets:[{
+          data:DATA.yearly.map(d=>+(d.overdue/d.total*100).toFixed(1)),
+          backgroundColor:DATA.yearly.map(d=>d.overdue===0?hexToRgba(getCSS('--success'),.5):hexToRgba(getCSS('--error'),.6)),
+          borderRadius:5,borderSkipped:false
+        }]
+      },
+      options:{...defaults,plugins:{...defaults.plugins,tooltip:{...defaults.plugins.tooltip,callbacks:{label:ctx=>ctx.raw+'% просрочено'}}},
+        scales:{...defaults.scales,y:{...defaults.scales.y,ticks:{...defaults.scales.y.ticks,callback:v=>v+'%'}}}}
+    });
+  }
+}
+
+function switchDynTab(el,mode){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  const chart=chartInstances['monthly-line'];
+  if(!chart)return;
+  if(mode==='count'){
+    chart.data.datasets[0].hidden=false;
+    chart.data.datasets[1].hidden=true;
+    chart.options.scales.y.display=true;
+    chart.options.scales.y2.display=false;
+  }else if(mode==='revenue'){
+    chart.data.datasets[0].hidden=true;
+    chart.data.datasets[1].hidden=false;
+    chart.options.scales.y.display=false;
+    chart.options.scales.y2.display=true;
+    chart.options.scales.y2.ticks={color:getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),font:{size:11},callback:v=>v+' млн'};
+    chart.options.scales.y2.grid={color:getComputedStyle(document.documentElement).getPropertyValue('--border').trim()};
+  }else{
+    chart.data.datasets[0].hidden=false;
+    chart.data.datasets[1].hidden=false;
+    chart.options.scales.y.display=true;
+    chart.options.scales.y2.display=true;
+    chart.options.scales.y2.ticks={color:getComputedStyle(document.documentElement).getPropertyValue('--muted').trim(),font:{size:11},callback:v=>v+' млн'};
+  }
+  chart.update();
+}
+
+// Init on load
+window.addEventListener('load',()=>{setTimeout(initCharts,100);});
+</script>
+</body>
+</html>
